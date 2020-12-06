@@ -42,9 +42,16 @@ public class ImageUtils {
         options.inJustDecodeBounds = false;
         Bitmap bitmap = BitmapFactory.decodeFile(sourceImage.getAbsolutePath(), options);
 
-        // Process EXIF information
+        // Get the dimensions of the original bitmap
+        int originalWidth = options.outWidth;
+        int originalHeight = options.outHeight;
+        float aspectRatio = (float) originalWidth / originalHeight;
         int rotationInDegrees = 0;
         Matrix matrix = new Matrix();
+        // Calculate the target dimensions
+        int targetWidth, targetHeight;
+
+        // Process EXIF information
         try {
           ExifInterface exif = new ExifInterface(sourceImage.getAbsolutePath());
           int rotation = exif.getAttributeInt(
@@ -55,14 +62,6 @@ public class ImageUtils {
           // Silently fail
         }
 
-        // Get the dimensions of the original bitmap
-        int originalWidth = options.outWidth;
-        int originalHeight = options.outHeight;
-        float aspectRatio = (float) originalWidth / originalHeight;
-
-        // Calculate the target dimensions
-        int targetWidth, targetHeight;
-
         if (originalWidth > originalHeight) {
             targetWidth = targetLength;
             targetHeight = Math.round(targetWidth / aspectRatio);
@@ -72,13 +71,12 @@ public class ImageUtils {
             targetWidth = Math.round(targetHeight / aspectRatio);
         }
 
-        Bitmap rotated = Bitmap.createBitmap(
-          bitmap, 0, 0, originalWidth, originalHeight, matrix, true);
-
-        // Swap height and width if rotated
-        if (rotationInDegrees == 90 || rotationInDegrees == 270) {
-          targetHeight = targetHeight ^ targetWidth ^ (targetWidth = targetHeight);
+        // Scale bitmap
+        bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+        if (rotationInDegrees == 0) {
+          return bitmap;
         }
-        return Bitmap.createScaledBitmap(rotated, targetWidth, targetHeight, true);
+        // Rotate bitmap if necessary EXIF rotated
+        return Bitmap.createBitmap(bitmap, 0, 0, targetWidth, targetHeight, matrix, true);
     }
 }
