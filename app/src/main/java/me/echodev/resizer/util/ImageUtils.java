@@ -13,11 +13,20 @@ import java.io.IOException;
  */
 
 public class ImageUtils {
-    private static int exifToDegrees(int exifOrientation) {
-        if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90) { return 90; }
-        else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {  return 180; }
-        else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {  return 270; }
-        return 0;
+    public static void copyExif(String oldPath, String newPath) throws IOException
+    {
+        ExifInterface oldExif = new ExifInterface(oldPath);
+        ExifInterface newExif = new ExifInterface(newPath);
+
+        String[] attributes = new String[] {
+            ExifInterface.TAG_ORIENTATION
+        };
+        for (int i = 0; i < attributes.length; i++) {
+            String value = oldExif.getAttribute(attributes[i]);
+            if (value != null)
+                newExif.setAttribute(attributes[i], value);
+        }
+        newExif.saveAttributes();
     }
 
     public static File getScaledImage(int targetLength, int quality, Bitmap.CompressFormat compressFormat,
@@ -34,6 +43,7 @@ public class ImageUtils {
         Bitmap scaledBitmap = getScaledBitmap(targetLength, sourceImage);
         FileUtils.writeBitmapToFile(scaledBitmap, compressFormat, quality, outputFilePath);
 
+        copyExif(sourceImage.getAbsolutePath(), outputFilePath);
         return new File(outputFilePath);
     }
 
@@ -46,21 +56,9 @@ public class ImageUtils {
         int originalWidth = options.outWidth;
         int originalHeight = options.outHeight;
         float aspectRatio = (float) originalWidth / originalHeight;
-        int rotationInDegrees = 0;
-        Matrix matrix = new Matrix();
+
         // Calculate the target dimensions
         int targetWidth, targetHeight;
-
-        // Process EXIF information
-        try {
-          ExifInterface exif = new ExifInterface(sourceImage.getAbsolutePath());
-          int rotation = exif.getAttributeInt(
-            ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-          rotationInDegrees = exifToDegrees(rotation);
-          if (rotation != 0) {matrix.preRotate(rotationInDegrees);}
-        } catch (IOException e) {
-          // Silently fail
-        }
 
         if (originalWidth > originalHeight) {
             targetWidth = targetLength;
@@ -71,12 +69,6 @@ public class ImageUtils {
             targetWidth = Math.round(targetHeight / aspectRatio);
         }
 
-        // Scale bitmap
-        bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
-        if (rotationInDegrees == 0) {
-          return bitmap;
-        }
-        // Rotate bitmap if necessary EXIF rotated
-        return Bitmap.createBitmap(bitmap, 0, 0, targetWidth, targetHeight, matrix, true);
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
     }
 }
